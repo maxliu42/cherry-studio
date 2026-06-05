@@ -11,6 +11,7 @@ import type { Chunk } from '@renderer/types/chunk'
 import { ChunkType } from '@renderer/types/chunk'
 import { AssistantMessageStatus, MessageBlockStatus, MessageBlockType } from '@renderer/types/newMessage'
 import type * as errorUtils from '@renderer/utils/error'
+import { findMainTextBlocks } from '@renderer/utils/messageUtils/find'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { RootState } from '../../index'
@@ -607,6 +608,147 @@ describe('streamCallback Integration Tests', () => {
     expect(citationBlock).toBeDefined()
     expect(citationBlock?.response?.source).toEqual(mockWebSearchResult.source)
     expect(citationBlock?.status).toBe(MessageBlockStatus.SUCCESS)
+  })
+
+  // Anthropic native web search returns the answer as one text content block per citation, which the
+  // adapter surfaces as repeated TEXT_START/TEXT_COMPLETE pairs (with inline [N] markers injected).
+  // These consecutive segments must coalesce into a single MAIN_TEXT block, otherwise each renders as
+  // its own paragraph and shears sentences at every citation.
+  it('should coalesce consecutive citation-split text segments into one block', async () => {
+    const callbacks = createMockCallbacks(mockAssistantMsgId, mockTopicId, mockAssistant, dispatch, getState)
+
+    const chunks: Chunk[] = [
+      { type: ChunkType.LLM_RESPONSE_CREATED },
+      { type: ChunkType.TEXT_START },
+      { type: ChunkType.TEXT_DELTA, text: 'The Knicks won. ' },
+      { type: ChunkType.TEXT_DELTA, text: 'The Knicks won. [1]' },
+      { type: ChunkType.TEXT_COMPLETE, text: 'The Knicks won. [1]' },
+      { type: ChunkType.TEXT_START },
+      { type: ChunkType.TEXT_DELTA, text: 'They beat the Spurs.' },
+      { type: ChunkType.TEXT_DELTA, text: 'They beat the Spurs.[2]' },
+      { type: ChunkType.TEXT_COMPLETE, text: 'They beat the Spurs.[2]' },
+      { type: ChunkType.BLOCK_COMPLETE }
+    ]
+
+    await processChunks(chunks, callbacks)
+
+    const state = getState()
+    const blocks = Object.values(state.messageBlocks.entities)
+    const textBlocks = blocks.filter((block) => block.type === MessageBlockType.MAIN_TEXT)
+    expect(textBlocks).toHaveLength(1)
+    expect(textBlocks[0]?.content).toBe('The Knicks won. [1]They beat the Spurs.[2]')
+    expect(textBlocks[0]?.status).toBe(MessageBlockStatus.SUCCESS)
+  })
+
+  // A non-text block between two text segments must break the run, so prose written before/after a
+  // tool or thinking step keeps its own block (the inline-prose grouping fix relies on this).
+  it('should NOT coalesce text segments separated by a thinking block', async () => {
+    const callbacks = createMockCallbacks(mockAssistantMsgId, mockTopicId, mockAssistant, dispatch, getState)
+
+    const chunks: Chunk[] = [
+      { type: ChunkType.LLM_RESPONSE_CREATED },
+      { type: ChunkType.TEXT_START },
+      { type: ChunkType.TEXT_DELTA, text: 'Before thinking.' },
+      { type: ChunkType.TEXT_COMPLETE, text: 'Before thinking.' },
+      { type: ChunkType.THINKING_START },
+      { type: ChunkType.THINKING_DELTA, text: 'Pondering...', thinking_millsec: 1000 },
+      { type: ChunkType.THINKING_COMPLETE, text: 'Pondering...' },
+      { type: ChunkType.TEXT_START },
+      { type: ChunkType.TEXT_DELTA, text: 'After thinking.' },
+      { type: ChunkType.TEXT_COMPLETE, text: 'After thinking.' },
+      { type: ChunkType.BLOCK_COMPLETE }
+    ]
+
+    await processChunks(chunks, callbacks)
+
+    const state = getState()
+    const blocks = Object.values(state.messageBlocks.entities)
+    const textBlocks = blocks.filter((block) => block.type === MessageBlockType.MAIN_TEXT)
+    expect(textBlocks).toHaveLength(2)
+    expect(textBlocks.map((block) => block.content).sort()).toEqual(['After thinking.', 'Before thinking.'])
+  })
+
+  // Provider-executed web search (Anthropic native) interleaves search TOOL blocks with text, so the
+  // answer spans multiple MAIN_TEXT blocks. Every one of them must be linked to the citation block —
+  // otherwise inline [N] markers in the later blocks never resolve to citation pills (they render as
+  // plain "[18]" text). Regression test for that bug.
+  it('should link the citation block to ALL main text blocks across tool boundaries', async () => {
+    const callbacks = createMockCallbacks(mockAssistantMsgId, mockTopicId, mockAssistant, dispatch, getState)
+
+    const webSearchTool: MCPTool = {
+      id: 'web_search',
+      serverId: 'provider',
+      serverName: 'Anthropic',
+      name: 'web_search',
+      description: 'Provider web search',
+      inputSchema: { type: 'object', title: 'Web Search', properties: {} },
+      type: 'provider' as any
+    }
+
+    const mockWebSearchResult = {
+      source: WEB_SEARCH_SOURCE.ANTHROPIC,
+      results: [
+        { url: 'https://a.example.com', title: 'A' },
+        { url: 'https://b.example.com', title: 'B' }
+      ]
+    }
+
+    const chunks: Chunk[] = [
+      { type: ChunkType.LLM_RESPONSE_CREATED },
+      // First text block (e.g. an intro before the model searches).
+      { type: ChunkType.TEXT_START },
+      { type: ChunkType.TEXT_DELTA, text: 'Intro.' },
+      { type: ChunkType.TEXT_COMPLETE, text: 'Intro.' },
+      // Provider-executed web search → TOOL block (breaks the text run).
+      {
+        type: ChunkType.MCP_TOOL_PENDING,
+        responses: [
+          { id: 'ws-1', tool: webSearchTool, arguments: { query: 'x' }, status: 'pending' as const, response: '' }
+        ]
+      },
+      {
+        type: ChunkType.MCP_TOOL_COMPLETE,
+        responses: [
+          { id: 'ws-1', tool: webSearchTool, arguments: { query: 'x' }, status: 'done' as const, response: 'ok' }
+        ]
+      },
+      // Second text block, containing the inline citation marker.
+      { type: ChunkType.TEXT_START },
+      { type: ChunkType.TEXT_DELTA, text: 'Body.[2]' },
+      { type: ChunkType.TEXT_COMPLETE, text: 'Body.[2]' },
+      // Native Anthropic emits only COMPLETE (no IN_PROGRESS) at the end.
+      { type: ChunkType.LLM_WEB_SEARCH_COMPLETE, llm_web_search: mockWebSearchResult },
+      { type: ChunkType.BLOCK_COMPLETE }
+    ]
+
+    // findMainTextBlocks is mocked to [] at module level; make it resolve real blocks from the test
+    // store so onLLMWebSearchComplete can link them. Restored at the end of the test.
+    vi.mocked(findMainTextBlocks).mockImplementation((message: any) => {
+      if (!message?.blocks) return []
+      const s = getState()
+      return message.blocks
+        .map((id: string) => s.messageBlocks.entities[id])
+        .filter((b: any) => b && b.type === MessageBlockType.MAIN_TEXT)
+    })
+
+    try {
+      await processChunks(chunks, callbacks)
+
+      const state = getState()
+      const blocks = Object.values(state.messageBlocks.entities)
+      const citationBlock = blocks.find((block) => block.type === MessageBlockType.CITATION)
+      expect(citationBlock).toBeDefined()
+
+      const textBlocks = blocks.filter((block) => block.type === MessageBlockType.MAIN_TEXT)
+      expect(textBlocks).toHaveLength(2)
+      // Both blocks (not just the first) must reference the citation block, with the canonical
+      // `citationBlockId` key that MainTextBlock reads.
+      for (const textBlock of textBlocks) {
+        expect(textBlock?.citationReferences?.[0]?.citationBlockId).toBe(citationBlock!.id)
+      }
+    } finally {
+      vi.mocked(findMainTextBlocks).mockReturnValue([])
+    }
   })
 
   it('should handle mixed content flow (thinking + tool + text)', async () => {

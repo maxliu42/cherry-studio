@@ -32,6 +32,14 @@ export const createTextCallbacks = (deps: TextCallbacksDependencies) => {
   let mainTextBlockId: string | null = null
   // Track thoughtSignature for Gemini thought signature persistence
   let currentThoughtSignature: string | undefined
+  // Coalesce consecutive citation-split text segments into one block. Anthropic native web search
+  // returns a separate text content block per citation, so without this each segment becomes its own
+  // MAIN_TEXT block and renders as a separate paragraph — shearing sentences at every citation. We
+  // only continue a run while no other block type was emitted in between (lastBlockType stays
+  // MAIN_TEXT), so prose separated by a tool/thinking block still gets its own block (preserving the
+  // inline-prose grouping fix).
+  let runContent = ''
+  let lastCompletedMainTextBlockId: string | null = null
 
   return {
     getCurrentMainTextBlockId: () => mainTextBlockId,
@@ -43,12 +51,24 @@ export const createTextCallbacks = (deps: TextCallbacksDependencies) => {
           status: MessageBlockStatus.STREAMING
         }
         mainTextBlockId = blockManager.initialPlaceholderBlockId!
+        runContent = ''
+        lastCompletedMainTextBlockId = null
         blockManager.smartBlockUpdate(mainTextBlockId, changes, MessageBlockType.MAIN_TEXT, true)
+      } else if (
+        !mainTextBlockId &&
+        lastCompletedMainTextBlockId &&
+        blockManager.lastBlockType === MessageBlockType.MAIN_TEXT
+      ) {
+        // Same text run as the just-completed segment (a citation split the answer); keep appending
+        // to the existing block instead of starting a new paragraph.
+        mainTextBlockId = lastCompletedMainTextBlockId
       } else if (!mainTextBlockId) {
         const newBlock = createMainTextBlock(assistantMsgId, '', {
           status: MessageBlockStatus.STREAMING
         })
         mainTextBlockId = newBlock.id
+        runContent = ''
+        lastCompletedMainTextBlockId = null
         await blockManager.handleBlockTransition(newBlock, MessageBlockType.MAIN_TEXT)
       }
     },
@@ -60,7 +80,7 @@ export const createTextCallbacks = (deps: TextCallbacksDependencies) => {
         : WEB_SEARCH_SOURCE.WEBSEARCH
       if (text) {
         const blockChanges: Partial<MessageBlock> = {
-          content: text,
+          content: runContent + text,
           status: MessageBlockStatus.STREAMING,
           citationReferences: citationBlockId ? [{ citationBlockId, citationBlockSource }] : []
         }
@@ -74,20 +94,25 @@ export const createTextCallbacks = (deps: TextCallbacksDependencies) => {
 
     onTextComplete: async (finalText: string, providerMetadata?: ProviderMetadata) => {
       if (mainTextBlockId) {
+        const mergedText = runContent + finalText
         // Use thoughtSignature from providerMetadata if available, otherwise use collected one
         const thoughtSignature = providerMetadata?.google?.thoughtSignature || currentThoughtSignature
         const changes: Partial<MessageBlock> = {
-          content: finalText,
+          content: mergedText,
           status: MessageBlockStatus.SUCCESS,
           // Store thoughtSignature in metadata for persistence
           metadata: thoughtSignature ? { thoughtSignature } : undefined
         }
         blockManager.smartBlockUpdate(mainTextBlockId, changes, MessageBlockType.MAIN_TEXT, true)
         if (handleCompactTextComplete) {
-          await handleCompactTextComplete(finalText, mainTextBlockId)
+          await handleCompactTextComplete(mergedText, mainTextBlockId)
         }
         // Clear thoughtSignature after block is complete
         currentThoughtSignature = undefined
+        // Remember this block + accumulated text so a following text segment with nothing in between
+        // (a citation split) appends to it instead of creating a new paragraph.
+        runContent = mergedText
+        lastCompletedMainTextBlockId = mainTextBlockId
         mainTextBlockId = null
       } else {
         logger.warn(

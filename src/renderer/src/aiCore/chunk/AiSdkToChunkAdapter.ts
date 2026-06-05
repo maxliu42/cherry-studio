@@ -35,6 +35,13 @@ export class AiSdkToChunkAdapter {
   private getSessionWasCleared?: () => boolean
   private providerId?: string
   private idleTimeout?: IdleTimeoutHandle
+  // Maps a web-search citation URL → its 1-based number, so the inline [N] markers we inject for
+  // Anthropic citations line up with formatCitationsFromBlock()'s ANTHROPIC numbering (unique
+  // results, numbered index+1 in first-seen order). Reset per stream and per finish-step.
+  private citationNumberByUrl: Map<string, number> = new Map()
+  // Inline citation markers collected during the current Anthropic text block, flushed at text-end
+  // so the pill renders at the end of the cited claim (not the start of the next sentence).
+  private pendingCitationMarkers: string = ''
 
   constructor(
     private onChunk: (chunk: Chunk) => void,
@@ -110,6 +117,8 @@ export class AiSdkToChunkAdapter {
     // Reset state at the start of stream
     this.isFirstChunk = true
     this.hasTextContent = false
+    this.citationNumberByUrl.clear()
+    this.pendingCitationMarkers = ''
 
     try {
       while (true) {
@@ -250,7 +259,13 @@ export class AiSdkToChunkAdapter {
         }
         break
       }
-      case 'text-end':
+      case 'text-end': {
+        // Flush inline citation markers collected during this text block (see the `source` case) so
+        // the pill renders at the end of the cited claim rather than the start of the next sentence.
+        if (this.pendingCitationMarkers) {
+          final.text += this.pendingCitationMarkers
+          this.pendingCitationMarkers = ''
+        }
         this.onChunk({
           type: ChunkType.TEXT_COMPLETE,
           text: (chunk.providerMetadata?.text?.value as string) ?? final.text ?? '',
@@ -260,6 +275,7 @@ export class AiSdkToChunkAdapter {
         // Clear providerMetadata for next text block
         final.providerMetadata = undefined
         break
+      }
       case 'reasoning-start':
         // if (final.reasoningId !== chunk.id) {
         final.reasoningId = chunk.id
@@ -347,6 +363,8 @@ export class AiSdkToChunkAdapter {
         }
 
         final.webSearchResults = []
+        this.citationNumberByUrl.clear()
+        this.pendingCitationMarkers = ''
         // final.reasoningId = ''
         break
       }
@@ -407,7 +425,32 @@ export class AiSdkToChunkAdapter {
         if (chunk.sourceType === 'url') {
           // oxlint-disable-next-line @typescript-eslint/no-unused-vars
           const { sourceType: _, ...rest } = chunk
-          final.webSearchResults.push(rest)
+          // Anthropic native web search emits two kinds of url `source` parts:
+          //   1. one per web_search *result* (providerMetadata.anthropic = { pageAge }) — the
+          //      bibliography, streamed up front before the answer. These must only populate the
+          //      citation list at the bottom, never the prose (otherwise we get a leading
+          //      [1][2]...[N] cluster).
+          //   2. one per inline *citation* the model makes (providerMetadata.anthropic.citedText) —
+          //      these are the real pills.
+          // For both we keep a URL→number map so the numbers match formatCitationsFromBlock's
+          // ANTHROPIC numbering (unique results, index+1). We only inject a marker for (2), and we
+          // defer it to the cited text block's end (see 'text-end'). Other providers are untouched.
+          const anthropicSource = (chunk as { providerMetadata?: ProviderMetadata }).providerMetadata?.anthropic as
+            | { citedText?: string }
+            | undefined
+          if (anthropicSource && rest.url) {
+            let citationNumber = this.citationNumberByUrl.get(rest.url)
+            if (citationNumber === undefined) {
+              final.webSearchResults.push(rest)
+              citationNumber = final.webSearchResults.length
+              this.citationNumberByUrl.set(rest.url, citationNumber)
+            }
+            if (anthropicSource.citedText !== undefined) {
+              this.pendingCitationMarkers += `[${citationNumber}]`
+            }
+          } else {
+            final.webSearchResults.push(rest)
+          }
         }
         break
       case 'file':

@@ -71,6 +71,29 @@ export const createCitationCallbacks = (deps: CitationCallbacksDependencies) => 
     },
 
     onLLMWebSearchComplete: async (llmWebSearchResult: any) => {
+      // Link every main-text block to the citation block, not just the first one. Provider-executed
+      // web search (e.g. Anthropic native) interleaves search TOOL blocks with text, so a single
+      // answer is split across multiple MAIN_TEXT blocks. Only linking [0] left later blocks without
+      // a citationBlockId, so their inline [N] markers never resolved to pills (rendered as plain
+      // text). Dedupe by citation block id so we don't double-add if a ref already exists.
+      const linkMainTextBlocks = (resolvedCitationBlockId: string) => {
+        const state = getState()
+        const existingMainTextBlocks = findMainTextBlocks(state.messages.entities[assistantMsgId])
+        for (const mainTextBlock of existingMainTextBlocks) {
+          const currentRefs = mainTextBlock.citationReferences || []
+          if (currentRefs.some((ref) => ref.citationBlockId === resolvedCitationBlockId)) {
+            continue
+          }
+          const mainTextChanges = {
+            citationReferences: [
+              ...currentRefs,
+              { citationBlockId: resolvedCitationBlockId, citationBlockSource: llmWebSearchResult.source }
+            ]
+          }
+          blockManager.smartBlockUpdate(mainTextBlock.id, mainTextChanges, MessageBlockType.MAIN_TEXT, true)
+        }
+      }
+
       const blockId = citationBlockId || blockManager.initialPlaceholderBlockId
       if (blockId) {
         const changes: Partial<CitationMessageBlock> = {
@@ -80,16 +103,7 @@ export const createCitationCallbacks = (deps: CitationCallbacksDependencies) => 
         }
         blockManager.smartBlockUpdate(blockId, changes, MessageBlockType.CITATION, true)
 
-        const state = getState()
-        const existingMainTextBlocks = findMainTextBlocks(state.messages.entities[assistantMsgId])
-        if (existingMainTextBlocks.length > 0) {
-          const existingMainTextBlock = existingMainTextBlocks[0]
-          const currentRefs = existingMainTextBlock.citationReferences || []
-          const mainTextChanges = {
-            citationReferences: [...currentRefs, { blockId, citationBlockSource: llmWebSearchResult.source }]
-          }
-          blockManager.smartBlockUpdate(existingMainTextBlock.id, mainTextChanges, MessageBlockType.MAIN_TEXT, true)
-        }
+        linkMainTextBlocks(blockId)
 
         if (blockManager.hasInitialPlaceholder) {
           citationBlockId = blockManager.initialPlaceholderBlockId
@@ -106,16 +120,7 @@ export const createCitationCallbacks = (deps: CitationCallbacksDependencies) => 
         )
         citationBlockId = citationBlock.id
 
-        const state = getState()
-        const existingMainTextBlocks = findMainTextBlocks(state.messages.entities[assistantMsgId])
-        if (existingMainTextBlocks.length > 0) {
-          const existingMainTextBlock = existingMainTextBlocks[0]
-          const currentRefs = existingMainTextBlock.citationReferences || []
-          const mainTextChanges = {
-            citationReferences: [...currentRefs, { citationBlockId, citationBlockSource: llmWebSearchResult.source }]
-          }
-          blockManager.smartBlockUpdate(existingMainTextBlock.id, mainTextChanges, MessageBlockType.MAIN_TEXT, true)
-        }
+        linkMainTextBlocks(citationBlock.id)
         await blockManager.handleBlockTransition(citationBlock, MessageBlockType.CITATION)
       }
     },
