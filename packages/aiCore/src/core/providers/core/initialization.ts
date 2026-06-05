@@ -44,9 +44,14 @@ const AnthropicExtension = ProviderExtension.create({
   supportsImageGeneration: false,
   create: createAnthropic,
   toolFactories: {
+    // NOTE(my/stable): pinned to web_search_20250305 (classic, non-agentic) instead of
+    // web_search_20260209. The 2026-02-09 tool runs server-side via Anthropic's code-execution
+    // sandbox + programmatic tool calling, which delivers results into Python as a JSON *string*
+    // (model trips on `'str' object has no attribute 'get'` until it json.loads). 20250305 returns
+    // web_search_tool_result content blocks directly. Config/output schema are identical.
     webSearch:
-      (provider) => (config: NonNullable<Parameters<AnthropicProvider['tools']['webSearch_20260209']>[0]>) => ({
-        tools: { webSearch: provider.tools.webSearch_20260209(config) }
+      (provider) => (config: NonNullable<Parameters<AnthropicProvider['tools']['webSearch_20250305']>[0]>) => ({
+        tools: { webSearch: provider.tools.webSearch_20250305(config) }
       }),
     urlContext:
       (provider) => (config: NonNullable<Parameters<AnthropicProvider['tools']['webFetch_20260209']>[0]>) => ({
