@@ -115,7 +115,7 @@ const shouldCollapseExecutionDetails = (blocks: MessageBlock[], allowCollapseExe
   return hasExecutionDetails && allToolBlocksCompleted && hasOutputAfterLastExecutionDetail(blocks)
 }
 
-const groupCompletedExecutionBlocks = (
+export const groupCompletedExecutionBlocks = (
   blocks: MessageBlock[],
   allowCollapseExecutionDetails: boolean
 ): (MessageBlock[] | MessageBlock)[] => {
@@ -123,18 +123,27 @@ const groupCompletedExecutionBlocks = (
     return blocks
   }
 
-  const firstExecutionIndex = blocks.findIndex(isExecutionDetailBlock)
-  const lastExecutionIndex = blocks.findLastIndex(isExecutionDetailBlock)
+  // Only fold *contiguous* runs of execution blocks (THINKING/TOOL). Any non-execution block
+  // (e.g. MAIN_TEXT prose) breaks the run so it keeps rendering inline, in order, and is never
+  // swallowed into the collapsed group.
+  const grouped: (MessageBlock[] | MessageBlock)[] = []
+  let currentRun: MessageBlock[] | null = null
 
-  if (firstExecutionIndex === -1 || lastExecutionIndex === -1) {
-    return blocks
+  for (const block of blocks) {
+    if (isExecutionDetailBlock(block)) {
+      if (currentRun) {
+        currentRun.push(block)
+      } else {
+        currentRun = [block]
+        grouped.push(currentRun)
+      }
+    } else {
+      currentRun = null
+      grouped.push(block)
+    }
   }
 
-  return [
-    ...blocks.slice(0, firstExecutionIndex),
-    blocks.slice(firstExecutionIndex, lastExecutionIndex + 1),
-    ...blocks.slice(lastExecutionIndex + 1)
-  ]
+  return grouped
 }
 
 const groupSimilarBlocks = (
