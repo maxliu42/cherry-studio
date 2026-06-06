@@ -65,6 +65,8 @@ const DisplaySettings: FC = () => {
     clickAssistantToShowTopic,
     showTopicTime,
     pinTopicsToTop,
+    topicSortType = 'updatedAt',
+    setTopicSortType,
     customCss,
     sidebarIcons,
     setTheme,
@@ -436,6 +438,20 @@ const DisplaySettings: FC = () => {
         <SettingRow>
           <SettingRowTitle>{t('settings.topic.pin_to_top')}</SettingRowTitle>
           <Switch checked={pinTopicsToTop} onChange={(checked) => dispatch(setPinTopicsToTop(checked))} />
+        </SettingRow>
+        <SettingDivider />
+        <SettingRow>
+          <SettingRowTitle>{t('settings.topic.sort.label')}</SettingRowTitle>
+          <Segmented
+            value={topicSortType}
+            shape="round"
+            onChange={setTopicSortType}
+            options={[
+              { value: 'manual', label: t('settings.topic.sort.manual') },
+              { value: 'createdAt', label: t('settings.topic.sort.created') },
+              { value: 'updatedAt', label: t('settings.topic.sort.recent') }
+            ]}
+          />
         </SettingRow>
       </SettingGroup>
       <SettingGroup theme={theme}>

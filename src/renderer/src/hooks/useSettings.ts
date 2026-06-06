@@ -15,7 +15,7 @@
  * --------------------------------------------------------------------------
  */
 import store, { useAppDispatch, useAppSelector } from '@renderer/store'
-import type { AssistantIconType, SendMessageShortcut, SettingsState } from '@renderer/store/settings'
+import type { AssistantIconType, SendMessageShortcut, SettingsState, TopicSortType } from '@renderer/store/settings'
 import {
   setAssistantIconType,
   setAutoCheckUpdate as _setAutoCheckUpdate,
@@ -32,6 +32,7 @@ import {
   setTestPlan as _setTestPlan,
   setTheme,
   setTopicPosition,
+  setTopicSortType,
   setTray as _setTray,
   setTrayOnClose,
   setUseSystemTitleBar as _setUseSystemTitleBar,
@@ -102,6 +103,9 @@ export function useSettings() {
     },
     setPinTopicsToTop(pinTopicsToTop: boolean) {
       dispatch(setPinTopicsToTop(pinTopicsToTop))
+    },
+    setTopicSortType(topicSortType: TopicSortType) {
+      dispatch(setTopicSortType(topicSortType))
     },
     updateSidebarIcons(icons: { visible: SidebarIcon[]; disabled: SidebarIcon[] }) {
       dispatch(setSidebarIcons(icons))

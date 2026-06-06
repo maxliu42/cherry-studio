@@ -5807,6 +5807,12 @@
       },
       "show": {
         "time": "Show topic time"
+      },
+      "sort": {
+        "created": "Created",
+        "label": "Topic sort",
+        "manual": "Manual",
+        "recent": "Recent"
       }
     },
     "translate": {

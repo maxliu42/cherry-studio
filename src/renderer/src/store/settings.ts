@@ -52,6 +52,13 @@ export interface NutstoreSyncRuntime extends RemoteSyncState {}
 
 export type AssistantIconType = 'model' | 'emoji' | 'none'
 
+/**
+ * Ordering for the sidebar Topics list.
+ * - `manual`: stored array order (drag-reorderable) — the legacy behavior.
+ * - `createdAt` / `updatedAt`: sort by the topic's timestamp, newest first.
+ */
+export type TopicSortType = 'manual' | 'createdAt' | 'updatedAt'
+
 export type UserTheme = {
   colorPrimary: string
   userFontFamily: string
@@ -85,6 +92,7 @@ export interface SettingsState {
   topicPosition: 'left' | 'right'
   showTopicTime: boolean
   pinTopicsToTop: boolean
+  topicSortType: TopicSortType
   assistantIconType: AssistantIconType
   pasteLongTextAsFile: boolean
   pasteLongTextThreshold: number
@@ -284,6 +292,7 @@ export const initialState: SettingsState = {
   topicPosition: 'left',
   showTopicTime: false,
   pinTopicsToTop: false,
+  topicSortType: 'updatedAt',
   assistantIconType: 'emoji',
   pasteLongTextAsFile: false,
   pasteLongTextThreshold: 1500,
@@ -541,6 +550,9 @@ const settingsSlice = createSlice({
     },
     setPinTopicsToTop: (state, action: PayloadAction<boolean>) => {
       state.pinTopicsToTop = action.payload
+    },
+    setTopicSortType: (state, action: PayloadAction<TopicSortType>) => {
+      state.topicSortType = action.payload
     },
     setAssistantIconType: (state, action: PayloadAction<AssistantIconType>) => {
       state.assistantIconType = action.payload
@@ -938,6 +950,7 @@ export const {
   setTopicPosition,
   setShowTopicTime,
   setPinTopicsToTop,
+  setTopicSortType,
   setAssistantIconType,
   setPasteLongTextAsFile,
   setAutoCheckUpdate,

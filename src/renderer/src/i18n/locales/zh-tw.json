@@ -5807,6 +5807,12 @@
       },
       "show": {
         "time": "顯示話題時間"
+      },
+      "sort": {
+        "created": "[to be translated]:Created",
+        "label": "[to be translated]:Topic sort",
+        "manual": "[to be translated]:Manual",
+        "recent": "[to be translated]:Recent"
       }
     },
     "translate": {

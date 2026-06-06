@@ -60,6 +60,7 @@ import { useTranslation } from 'react-i18next'
 import { useDispatch, useSelector } from 'react-redux'
 import styled from 'styled-components'
 
+import { sortTopicList } from './sortTopics'
 import { TopicManagePanel, useTopicManageMode } from './TopicManageMode'
 
 interface Props {
@@ -74,7 +75,7 @@ export const Topics: React.FC<Props> = ({ assistant: _assistant, activeTopic, se
   const { notesPath } = useNotesSettings()
   const { assistants } = useAssistants()
   const { assistant, addTopic, removeTopic, moveTopic, updateTopic, updateTopics } = useAssistant(_assistant.id)
-  const { showTopicTime, pinTopicsToTop, setTopicPosition, topicPosition } = useSettings()
+  const { showTopicTime, pinTopicsToTop, setTopicPosition, topicPosition, topicSortType = 'updatedAt' } = useSettings()
 
   const renamingTopics = useSelector((state: RootState) => state.runtime.chat.renamingTopics)
   const topicLoadingQuery = useSelector((state: RootState) => state.messages.loadingByTopic)
@@ -523,17 +524,11 @@ export const Topics: React.FC<Props> = ({ assistant: _assistant, activeTopic, se
     onDeleteTopic
   ])
 
-  // Sort topics based on pinned status if pinTopicsToTop is enabled
-  const sortedTopics = useMemo(() => {
-    if (pinTopicsToTop) {
-      return [...assistant.topics].sort((a, b) => {
-        if (a.pinned && !b.pinned) return -1
-        if (!a.pinned && b.pinned) return 1
-        return 0
-      })
-    }
-    return assistant.topics
-  }, [assistant.topics, pinTopicsToTop])
+  // Order by the selected sort type (manual/created/recent), pinned floating to top when enabled
+  const sortedTopics = useMemo(
+    () => sortTopicList(assistant.topics, topicSortType, pinTopicsToTop),
+    [assistant.topics, topicSortType, pinTopicsToTop]
+  )
 
   // Filter topics based on search text (only in manage mode)
   // Supports: case-insensitive, space-separated keywords (all must match)
@@ -582,7 +577,7 @@ export const Topics: React.FC<Props> = ({ assistant: _assistant, activeTopic, se
             </Tooltip>
           </HeaderRow>
         }
-        disabled={isManageMode}>
+        disabled={isManageMode || topicSortType !== 'manual'}>
         {(topic) => {
           const isActive = topic.id === activeTopic?.id
           const topicName = topic.name.replace('`', '')
@@ -697,7 +692,11 @@ export const Topics: React.FC<Props> = ({ assistant: _assistant, activeTopic, se
                   </TopicPromptText>
                 )}
                 {showTopicTime && (
-                  <TopicTime className="time">{dayjs(topic.createdAt).format('YYYY/MM/DD HH:mm')}</TopicTime>
+                  <TopicTime className="time">
+                    {dayjs(topicSortType === 'updatedAt' ? topic.updatedAt : topic.createdAt).format(
+                      'YYYY/MM/DD HH:mm'
+                    )}
+                  </TopicTime>
                 )}
               </TopicListItem>
             </Dropdown>
