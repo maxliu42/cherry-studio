@@ -1,5 +1,6 @@
 import { loggerService } from '@logger'
 import { isMac, isWin } from '@main/constant'
+import { toAsarUnpackedPath } from '@main/utils'
 import { spawn } from 'child_process'
 import fs from 'fs/promises'
 import os from 'os'
@@ -621,11 +622,10 @@ export interface RipgrepResult {
 }
 
 export function getRipgrepAddonPath(): string {
-  const pkgJsonPath = require.resolve('@anthropic-ai/claude-agent-sdk/package.json')
-  const pkgRoot = path.dirname(pkgJsonPath)
+  const pkgRoot = path.dirname(require.resolve('@anthropic-ai/claude-agent-sdk'))
   const platform = isMac ? 'darwin' : isWin ? 'win32' : 'linux'
   const arch = process.arch === 'arm64' ? 'arm64' : 'x64'
-  return path.join(pkgRoot, 'vendor', 'ripgrep', `${arch}-${platform}`, 'ripgrep.node')
+  return toAsarUnpackedPath(path.join(pkgRoot, 'vendor', 'ripgrep', `${arch}-${platform}`, 'ripgrep.node'))
 }
 
 export async function runRipgrep(args: string[]): Promise<RipgrepResult> {
