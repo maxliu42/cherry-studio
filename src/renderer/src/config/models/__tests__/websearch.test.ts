@@ -178,6 +178,11 @@ describe('websearch helpers', () => {
       expect(isWebSearchModel(model)).toBe(true)
     })
 
+    it.each(['claude-fable-5', 'claude-mythos-5'])('supports Mythos-class Anthropic model %s', (id) => {
+      providerMock.mockReturnValueOnce(createProvider({ id: 'anthropic' }))
+      expect(isWebSearchModel(createModel({ id, provider: 'anthropic' }))).toBe(true)
+    })
+
     it('detects OpenAI preview search models only when supported', () => {
       providerMocks.isOpenAIProvider.mockReturnValue(true)
       const model = createModel({ id: 'gpt-4o-search-preview' })

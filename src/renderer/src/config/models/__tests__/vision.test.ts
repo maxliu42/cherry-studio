@@ -172,6 +172,13 @@ describe('isVisionModel', () => {
     expect(isVisionModel(createModel({ id: 'MiniMax-M2.7', provider: 'minimax' }))).toBe(false)
   })
 
+  it.each(['claude-fable-5', 'claude-mythos-5', 'claude-fable-5-20260609'])(
+    'matches Mythos-class Anthropic model %s as vision',
+    (id) => {
+      expect(isVisionModel(createModel({ id, provider: 'anthropic' }))).toBe(true)
+    }
+  )
+
   it('leverages image enhancement regex when standard vision regex does not match', () => {
     expect(isVisionModel(createModel({ id: 'qwen-image-edit' }))).toBe(true)
   })
