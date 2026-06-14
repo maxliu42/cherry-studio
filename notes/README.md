@@ -24,9 +24,12 @@ branch is rebased onto a new tag, so docs reference the stable subject line inst
 > stale; refresh this block when you move releases.
 
 - **Base:** `my/stable` = upstream tag **`v1.9.9`** (2026-06-02) + the patches below.
-- **Latest upstream stable:** **`v1.9.11`** (2026-06-07) — the prior published release was our base
-  `v1.9.9`; there is **no `v1.9.10`** (skipped — no tag, no release). We have **not** moved up yet, and
-  none of our patches have been superseded upstream.
+- **Latest upstream stable:** **`v1.9.11`** (2026-06-07). `v1.9.10` (2026-06-06) carried the actual
+  fixes; `v1.9.11` is a rebuild on top. Heads-up: upstream has since **removed the `v1.9.10` tag**
+  (it's gone from `CherryHQ`, but our fork `origin` still carries it — so `git tag` shows a `v1.9.10`
+  that `git ls-remote upstream` does not). We have **not** moved up yet — a test merge of `v1.9.11`
+  into `my/stable` is clean (zero file overlap with our patches, re-verified 2026-06-14), and none of
+  our patches have been superseded upstream.
 - **Upstream `main` = `2.0.0-dev`** (the v2 line; default branch). `v2.0.0` is in preview
   (`preview/v2.0.0-preview.*` branches exist) but **no public v2 release has shipped** — the
   `v1.9.x` tags are still the only stable line. Most code our patches touch is restructured in v2,
