@@ -13,6 +13,9 @@ What you need to build and run this repo, and the one gotcha that bites.
 
 > CLAUDE.md says "Node ≥22" — that's stale; the repo needs 24.11.1.
 
+> On **Windows**, swap Xcode CLT for **Visual Studio Build Tools** ("Desktop development with C++");
+> Node + Corepack pnpm are identical. Build/run specifics: [`build-and-run-windows.md`](build-and-run-windows.md).
+
 ### The Corepack gotcha
 
 A **globally-installed** pnpm prints:

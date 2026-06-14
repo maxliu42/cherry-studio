@@ -1,8 +1,8 @@
-# Build & run — rebuild / install playbook
+# Build & run (macOS) — rebuild / install playbook
 
 How to build and daily-drive the personal `my/stable` app (base tag in
 [`../README.md` → Current state](../README.md)). It's a throwaway local build — no Apple signing, no
-notarization, don't gold-plate.
+notarization, don't gold-plate. On Windows, use [`build-and-run-windows.md`](build-and-run-windows.md).
 
 ## 1) Build
 

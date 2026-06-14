@@ -23,11 +23,10 @@ branch is rebased onto a new tag, so docs reference the stable subject line inst
 > Verified **2026-06-14**. Everything time-sensitive lives here so the rest of the notes don't go
 > stale; refresh this block when you move releases.
 
-- **Base:** `my/stable` = upstream tag **`v1.9.9`** + the patches below.
-- **Latest upstream stable:** **`v1.9.11`** (2026-06-07). `v1.9.10` carried the actual fixes;
-  `v1.9.11` is a rebuild on top. We have **not** moved up yet — a test merge of `v1.9.11` into
-  `my/stable` is clean (zero file overlap with our patches), and none of our patches have been
-  superseded upstream.
+- **Base:** `my/stable` = upstream tag **`v1.9.9`** (2026-06-02) + the patches below.
+- **Latest upstream stable:** **`v1.9.11`** (2026-06-07) — the prior published release was our base
+  `v1.9.9`; there is **no `v1.9.10`** (skipped — no tag, no release). We have **not** moved up yet, and
+  none of our patches have been superseded upstream.
 - **Upstream `main` = `2.0.0-dev`** (the v2 line; default branch). `v2.0.0` is in preview
   (`preview/v2.0.0-preview.*` branches exist) but **no public v2 release has shipped** — the
   `v1.9.x` tags are still the only stable line. Most code our patches touch is restructured in v2,
@@ -67,5 +66,6 @@ Full procedure in [`guide/release-strategy.md`](guide/release-strategy.md). Shor
 |---|---|
 | [`guide/dev-onboarding.md`](guide/dev-onboarding.md) | Toolchain, setup, agent tooling, sanity checks |
 | [`guide/release-strategy.md`](guide/release-strategy.md) | The "track stable + carry patches" workflow + git commands |
-| [`guide/build-and-run.md`](guide/build-and-run.md) | Rebuild/install/daily-drive playbook |
+| [`guide/build-and-run.md`](guide/build-and-run.md) | Rebuild/install/daily-drive playbook (macOS) |
+| [`guide/build-and-run-windows.md`](guide/build-and-run-windows.md) | Rebuild/install/daily-drive playbook (Windows) |
 | [`guide/contributing.md`](guide/contributing.md) | How upstream PRs work, and why these patches aren't upstreamed |
