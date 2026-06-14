@@ -1,0 +1,3 @@
+# Anything machine-, account-, or secret-specific goes here and is never committed.
+# This fork is public, so keep notes/ free of private info; use local/ as the escape hatch.
+local/
