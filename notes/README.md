@@ -23,13 +23,14 @@ branch is rebased onto a new tag, so docs reference the stable subject line inst
 > Verified **2026-06-14**. Everything time-sensitive lives here so the rest of the notes don't go
 > stale; refresh this block when you move releases.
 
-- **Base:** `my/stable` = upstream tag **`v1.9.9`** (2026-06-02) + the patches below.
-- **Latest upstream stable:** **`v1.9.11`** (2026-06-07). `v1.9.10` (2026-06-06) carried the actual
-  fixes; `v1.9.11` is a rebuild on top. Heads-up: upstream has since **removed the `v1.9.10` tag**
-  (it's gone from `CherryHQ`, but our fork `origin` still carries it — so `git tag` shows a `v1.9.10`
-  that `git ls-remote upstream` does not). We have **not** moved up yet — a test merge of `v1.9.11`
-  into `my/stable` is clean (zero file overlap with our patches, re-verified 2026-06-14), and none of
-  our patches have been superseded upstream.
+- **Base:** `my/stable` = upstream tag **`v1.9.11`** (2026-06-07) + the patches below. Moved up from
+  `v1.9.9` on 2026-06-14 via `git rebase --onto v1.9.11 v1.9.9 my/stable` — a clean rebase (zero file
+  overlap with our patches), no patches superseded or dropped. A safety branch
+  `my/stable-backup-pre-1.9.11` points at the old `v1.9.9`-based tip.
+- **Latest upstream stable:** **`v1.9.11`** (2026-06-07) — now our base. `v1.9.10` (2026-06-06)
+  carried the actual fixes; `v1.9.11` is a rebuild on top. Heads-up: upstream **removed the `v1.9.10`
+  tag** (it's gone from `CherryHQ`, but our fork `origin` still carries it — so `git tag` shows a
+  `v1.9.10` that `git ls-remote upstream` does not).
 - **Upstream `main` = `2.0.0-dev`** (the v2 line; default branch). `v2.0.0` is in preview
   (`preview/v2.0.0-preview.*` branches exist) but **no public v2 release has shipped** — the
   `v1.9.x` tags are still the only stable line. Most code our patches touch is restructured in v2,
@@ -39,7 +40,7 @@ branch is rebased onto a new tag, so docs reference the stable subject line inst
 
 ## Patches carried on `my/stable`
 
-Listed newest-first. Get current hashes any time with `git log --oneline v1.9.9..HEAD`.
+Listed newest-first. Get current hashes any time with `git log --oneline v1.9.11..HEAD`.
 
 | Patch (commit subject) | Status | Folder |
 |---|---|---|
@@ -56,7 +57,7 @@ The two `anthropic-fable5-*` folders ship under one commit (`feat(models): …`)
 
 Full procedure in [`guide/release-strategy.md`](guide/release-strategy.md). Short version:
 
-1. `git fetch upstream --tags`, then `git rebase --onto <new-tag> v1.9.9 my/stable`.
+1. `git fetch upstream --tags`, then `git rebase --onto <new-tag> v1.9.11 my/stable`.
 2. Resolve conflicts only in files a patch touched. If the area was restructured (likely for the
    renderer/`aiCore` patches in v2), re-derive from that patch's `report.md`.
 3. Rebuild via [`guide/build-and-run.md`](guide/build-and-run.md).

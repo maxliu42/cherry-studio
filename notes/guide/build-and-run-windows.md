@@ -22,8 +22,8 @@ pnpm build:unpack       # = build + electron-builder --dir (fast; no installer)
 - `scripts\win-sign.js` no-ops unless `WIN_SIGN` + `CHERRY_CERT_*` env vars are set (same idea as
   `notarize.js` on mac), so the binaries end up **unsigned** — that's fine for local use.
 - Want a draggable installer instead? `pnpm build:win:x64` produces, in `dist\`:
-  - `Cherry-Studio-1.9.9-x64-setup.exe` — NSIS installer (per-user, lets you pick the install dir).
-  - `Cherry-Studio-1.9.9-x64-portable.exe` — single-file portable build.
+  - `Cherry-Studio-1.9.11-x64-setup.exe` — NSIS installer (per-user, lets you pick the install dir).
+  - `Cherry-Studio-1.9.11-x64-portable.exe` — single-file portable build.
   - (`pnpm build:win` does both x64 + arm64; on an x64 box just use `build:win:x64`.)
 
 First Windows build also downloads an `rtk.exe` helper into `resources\binaries\win32-x64\`, and
@@ -44,7 +44,7 @@ Two ways to run it:
 & "dist\win-unpacked\Cherry Studio.exe"
 
 # B) Or install via the NSIS installer (after `pnpm build:win:x64`):
-& "dist\Cherry-Studio-1.9.9-x64-setup.exe"   # default install dir: %LOCALAPPDATA%\Programs\Cherry Studio
+& "dist\Cherry-Studio-1.9.11-x64-setup.exe"   # default install dir: %LOCALAPPDATA%\Programs\Cherry Studio
 ```
 
 Because the binary is unsigned, **Microsoft Defender SmartScreen** will likely warn on first launch
